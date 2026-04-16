@@ -1,0 +1,22 @@
+# Cloud-Based PE Malware Detection API
+#
+# Python version: 3.12
+# Important pinned compatibility packages:
+# - numpy==1.26.4
+# - lief==0.14.1
+# - PFGimenez EMBER fork
+
+boto3
+streamlit
+numpy==1.26.4
+lief==0.14.1
+joblib
+scikit-learn
+matplotlib
+seaborn
+tqdm
+jupyter
+ipykernel
+torch
+torchvision
+git+https://github.com/PFGimenez/ember.git
