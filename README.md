@@ -12,6 +12,8 @@ This project was completed for DSCI 6015: AI and Cybersecurity. The assignment r
 
 The model pipeline in this repository uses EMBER 2017 v2 features and a trained PyTorch model. The deployed SageMaker endpoint expects JSON input with a features field containing exactly 2381 EMBER features, applies the saved scaler, runs inference, and returns `label`, `probability`, and `confidence`.
 
+Demo link: https://youtu.be/28gSNEsEAYI
+
 ## Repository Structure
 
 ```text
