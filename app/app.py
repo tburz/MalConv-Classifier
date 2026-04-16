@@ -8,23 +8,26 @@ import numpy as np
 import streamlit as st
 import lief
 
+# EMBER import can vary depending on package layout, so try both forms.
 try:
     from ember import PEFeatureExtractor
 except Exception:
     from ember.features import PEFeatureExtractor
 
 
+# Read runtime configuration from environment variables.
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 SAGEMAKER_ENDPOINT_NAME = os.getenv("SAGEMAKER_ENDPOINT_NAME", "malconv-endpoint")
 DEBUG_MODE = os.getenv("DEBUG_MODE", "1") == "1"
 
+# Create the SageMaker runtime client once and reuse it.
 runtime = boto3.client("sagemaker-runtime", region_name=AWS_REGION)
 
 
 def patch_numpy_compat():
     """
-    Older EMBER code may still use removed NumPy aliases.
-    Restore them at runtime so we do not need to edit site-packages.
+    Restore deprecated NumPy aliases used by older EMBER code.
+    This avoids editing installed packages directly.
     """
     if not hasattr(np, "int"):
         np.int = np.int64
@@ -38,8 +41,8 @@ def patch_numpy_compat():
 
 def patch_lief_compat():
     """
-    Older EMBER code may expect older LIEF exception names.
-    Newer LIEF versions collapse these into lief.lief_errors.
+    Map older LIEF exception names to the newer unified lief.lief_errors type.
+    This helps older EMBER code run against newer LIEF versions.
     """
     fallback = getattr(lief, "lief_errors", RuntimeError)
 
@@ -58,6 +61,10 @@ def patch_lief_compat():
 
 
 def summarize_features(features: np.ndarray) -> dict:
+    """
+    Produce a compact debug summary of the extracted feature vector.
+    Useful for validating feature shape and checking for bad values.
+    """
     features = np.asarray(features, dtype=np.float32).flatten()
     return {
         "feature_count": int(features.shape[0]),
@@ -69,6 +76,7 @@ def summarize_features(features: np.ndarray) -> dict:
         "nan_count": int(np.isnan(features).sum()),
         "inf_count": int(np.isinf(features).sum()),
         "nonzero_count": int(np.count_nonzero(features)),
+        # Hash a subset of features so runs can be compared without dumping everything.
         "sha256_first_512_features": hashlib.sha256(
             features[:512].tobytes()
         ).hexdigest(),
@@ -77,6 +85,10 @@ def summarize_features(features: np.ndarray) -> dict:
 
 
 def extract_ember_features(file_bytes: bytes) -> np.ndarray:
+    """
+    Convert raw PE file bytes into a 2381-length EMBER v2 feature vector.
+    Also validates shape and checks for invalid numeric values.
+    """
     patch_numpy_compat()
     patch_lief_compat()
 
@@ -84,6 +96,7 @@ def extract_ember_features(file_bytes: bytes) -> np.ndarray:
     features = extractor.feature_vector(file_bytes)
     features = np.asarray(features, dtype=np.float32).flatten()
 
+    # The deployed endpoint expects exactly 2381 EMBER features.
     if features.shape[0] != 2381:
         raise ValueError(f"Expected 2381 features, got {features.shape[0]}")
 
@@ -97,6 +110,10 @@ def extract_ember_features(file_bytes: bytes) -> np.ndarray:
 
 
 def invoke_endpoint_with_features(features: np.ndarray):
+    """
+    Send the extracted feature vector to the SageMaker endpoint
+    and return the prediction result, latency, and payload size.
+    """
     payload = {
         "features": features.astype(float).tolist()
     }
@@ -117,11 +134,13 @@ def invoke_endpoint_with_features(features: np.ndarray):
 
 
 def main():
+    # Configure the Streamlit page layout and title.
     st.set_page_config(page_title="PE Malware Detector", layout="centered")
 
     st.title("PE Malware Detector")
     st.write("Upload a Windows PE file and classify whether or not it is malware.")
 
+    # Show endpoint configuration for transparency/debugging.
     with st.expander("Endpoint Configuration", expanded=False):
         st.code(
             f"AWS_REGION={AWS_REGION}\n"
@@ -129,6 +148,7 @@ def main():
             f"DEBUG_MODE={DEBUG_MODE}"
         )
 
+    # Restrict uploads to common Windows PE-related file extensions.
     uploaded_file = st.file_uploader(
         "Choose a PE file",
         type=["exe", "dll", "sys", "ocx", "scr", "cpl", "drv"]
@@ -143,10 +163,12 @@ def main():
 
         if st.button("Analyze File", type="primary"):
             try:
+                # Step 1: Extract EMBER features from the uploaded file.
                 with st.spinner("Extracting EMBER features..."):
                     features = extract_ember_features(file_bytes)
                     feature_debug = summarize_features(features)
 
+                # Step 2: Send those features to SageMaker for inference.
                 with st.spinner("Calling SageMaker endpoint..."):
                     result, latency_ms, payload_size = invoke_endpoint_with_features(features)
 
@@ -156,6 +178,7 @@ def main():
 
                 st.subheader("Classification Result")
 
+                # Use different Streamlit message styles for clearer output.
                 if label == "Malware":
                     st.error(f"Prediction: {label}")
                 elif label == "Benign":
@@ -171,14 +194,17 @@ def main():
                 st.write(f"**Payload Size:** {payload_size:,} bytes")
                 st.write(f"**API Latency:** {latency_ms:.2f} ms")
 
+                # Optional client-side diagnostics for debugging/demo purposes.
                 if DEBUG_MODE:
                     with st.expander("Client Feature Debug", expanded=False):
                         st.json(feature_debug)
 
+                # Show the full raw response from the API.
                 with st.expander("Raw API Response"):
                     st.json(result)
 
             except Exception as e:
+                # Display the full exception in the Streamlit UI.
                 st.exception(e)
 
 
