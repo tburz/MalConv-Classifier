@@ -32,5 +32,6 @@ The model pipeline in this repository uses EMBER 2017 v2 features and a trained 
 │   ├── deployment_notes.md
 │   └── screenshots/
 └── models/
-    └── README.md
+    ├── scaler.pkl
+    └── malconv_final.pt
 ```
