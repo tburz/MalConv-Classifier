@@ -1,4 +1,0 @@
-streamlit
-boto3
-numpy
-git+https://github.com/elastic/ember.git
