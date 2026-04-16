@@ -1,10 +1,10 @@
 # Deployment Notes
 
-This document summarizes the deployment design and endpoint behavior for the **Cloud-Based PE Malware Detection API** project.
+This document summarizes the deployment design and endpoint behavior for the Cloud-Based PE Malware Detection API project.
 
 ## Overview
 
-The trained malware classification model was deployed as an **Amazon SageMaker real-time inference endpoint**. The purpose of the deployment is to expose the trained model as a callable cloud API so that an external client application can submit feature vectors and receive malware classification results. 
+The trained malware classification model was deployed as an Amazon SageMaker real-time inference endpoint. The purpose of the deployment is to expose the trained model as a callable cloud API so that an external client application can submit feature vectors and receive malware classification results. 
 
 ---
 
@@ -103,6 +103,23 @@ Older EMBER code references deprecated aliases such as `np.int`. Since NumPy 2.x
 Older EMBER code references exception names that changed in newer LIEF versions. The project pinned `lief==0.14.1` and also documented a patch that maps older exception references to `lief.lief_errors` when needed.
 
 These fixes were necessary to keep feature extraction and inference stable across local development and demo execution. 
+
+---
+
+## Setting up SageMaker
+
+- Run the following commands to package the code and send it to your S3 Bucket
+- `tar -czf model.tar.gz malconv_final.pt scaler.pkl inference.py`
+- `aws s3 cp model.tar.gz s3://BUCKET_NAME/malconv/model.tar.gz`
+
+- Go to the AWS home console, use the searchbar at the top to search "Amazon SageMaker AI"
+- On the left, navigate to the "Deployable Model" section
+- Create a model - name it "malconv-model", use the image `763104351884.dkr.ecr.us-east-1.amazonaws.com/pytorch-inference:2.6.0-cpu-py312` and set the model data location to `s3://BUCKET_NAME/malconv/model.tar.gz`
+- Go to "Endpoint configurations" on the left and create an endpoint configuration
+- Name it "malconv-endpoint-config" and create a production variant. Select the model. Edit the variant to be instance type ml.m5.large.
+- Go to "Endpoints" on the left and create an endpoint
+- Name it "malconv-endpoint" and select the endpoint configuration just made
+- Create the endpoint and wait until it finishes starting
 
 ---
 
