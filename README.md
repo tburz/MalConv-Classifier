@@ -35,3 +35,6 @@ The model pipeline in this repository uses EMBER 2017 v2 features and a trained 
     ├── scaler.pkl
     └── malconv_final.pt
 ```
+
+### Streamlit Client Inference Result
+![Streamlit client showing PE file analysis result](docs/screenshots/workingApp.png)
